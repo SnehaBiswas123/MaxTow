@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Air Works MRO - Strategic Hub Navigator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        body {
+            background-color: #020617;
+            color: #e2e8f0;
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.95);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(56, 189, 248, 0.4);
+            box-shadow: 0 0 40px rgba(0, 0, 0, 0.9);
+        }
+
+        /* HIGH-VISIBILITY MAP STYLING */
+        .map-viewport {
+            position: relative;
+            background: #000;
+            border: 2px solid #0ea5e9;
+            box-shadow: inset 0 0 60px rgba(14, 165, 233, 0.4);
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Fixed aspect ratio container for the map */
+        .map-frame {
+            position: relative;
+            height: 95%;
+            aspect-ratio: 1 / 1.15;
+            z-index: 5;
+        }
+
+        .map-container {
+            position: absolute;
+            inset: 0;
+            background-image: url('https://upload.wikimedia.org/wikipedia/commons/3/30/India_location_map.svg');
+            background-repeat: no-repeat;
+            background-position: center;
+            background-size: 100% 100%;
+            filter: invert(1) sepia(100%) saturate(2500%) hue-rotate(180deg) brightness(1.7) contrast(1.5) drop-shadow(0 0 15px rgba(14, 165, 233, 0.9));
+            opacity: 0.95;
+        }
+
+        /* GRID OVERLAY */
+        .map-viewport::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background-image: 
+                linear-gradient(rgba(14, 165, 233, 0.1) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(14, 165, 233, 0.1) 1px, transparent 1px);
+            background-size: 40px 40px;
+            pointer-events: none;
+            z-index: 2;
+        }
+
+        /* RADAR SCAN LINE */
+        .scan-line {
+            position: absolute;
+            width: 100%;
+            height: 8px;
+            background: linear-gradient(to bottom, transparent, #38bdf8, transparent);
+            opacity: 0.5;
+            z-index: 3;
+            animation: scan 5s linear infinite;
+        }
+
+        @keyframes scan {
+            from { top: -10%; }
+            to { top: 110%; }
+        }
+
+        /* STATION MARKERS */
+        .waypoint {
+            position: absolute;
+            transform: translate(-50%, -50%) scale(0);
+            transition: all 0.7s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            opacity: 0;
+            z-index: 20;
+        }
+
+        .waypoint.active {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1);
+        }
+
+        /* Super Hubs (Mumbai, Hosur, Kochi) */
+        .hub-main {
+            width: 32px;
+            height: 32px;
+            background: #facc15;
+            border: 4px solid #000;
+            border-radius: 50%;
+            box-shadow: 0 0 40px #facc15;
+        }
+
+        .hub-main::after {
+            content: '';
+            position: absolute;
+            inset: -12px;
+            border: 3px solid #facc15;
+            border-radius: 50%;
+            animation: hub-pulse 2s infinite;
+        }
+
+        @keyframes hub-pulse {
+            0% { transform: scale(1); opacity: 1; }
+            100% { transform: scale(3); opacity: 0; }
+        }
+
+        /* Regional Hubs */
+        .hub-reg {
+            width: 20px;
+            height: 20px;
+            background: #0ea5e9;
+            border: 3px solid #000;
+            border-radius: 50%;
+            box-shadow: 0 0 15px #0ea5e9;
+        }
+
+        /* Timeline Slider */
+        input[type=range] {
+            appearance: none;
+            width: 100%;
+            height: 14px;
+            background: #0f172a;
+            border: 2px solid #38bdf8;
+            border-radius: 10px;
+            outline: none;
+            cursor: pointer;
+            margin: 0;
+        }
+
+        input[type=range]::-webkit-slider-thumb {
+            appearance: none;
+            width: 32px;
+            height: 32px;
+            background: #facc15;
+            border: 4px solid #000;
+            border-radius: 50%;
+            box-shadow: 0 0 20px #facc15;
+            margin-top: -11px;
+            position: relative;
+            z-index: 50;
+        }
+
+        .timeline-container {
+            position: relative;
+            width: 100%;
+            padding: 0 16px;
+        }
+
+        .markers-wrapper {
+            position: relative;
+            width: 100%;
+            height: 60px;
+            margin-top: 15px;
+        }
+
+        .marker {
+            position: absolute;
+            transform: translateX(-50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            white-space: nowrap;
+            text-align: center;
+            transition: all 0.3s ease;
+            pointer-events: none;
+        }
+
+        .marker.active {
+            color: #facc15 !important;
+        }
+
+        .cockpit-font { font-family: 'Orbitron', sans-serif; }
+    </style>
+</head>
+<body class="p-6 flex flex-col gap-4">
+
+    <!-- HEADER -->
+    <header class="glass-panel p-6 rounded-xl flex justify-between items-center border-b-4 border-sky-500">
+        <div>
+            <h1 class="cockpit-font text-3xl text-white tracking-widest uppercase">Air Works MRO Navigator</h1>
+            <p class="text-xs font-bold text-sky-400 mt-1 uppercase tracking-widest">An Adani Defence & Aerospace Company</p>
+        </div>
+        <div class="text-right flex items-center gap-6">
+            <div class="h-16 w-1 bg-sky-900 rounded"></div>
+            <div>
+                <div class="text-[10px] text-sky-500 font-bold mb-1 uppercase tracking-widest">Mission Timeline</div>
+                <div id="year-display" class="cockpit-font text-6xl text-yellow-400 leading-none">1951</div>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN DASHBOARD -->
+    <main class="flex-grow flex gap-4 overflow-hidden">
+        
+        <!-- MAP SECTION -->
+        <section class="map-viewport flex-grow rounded-xl glass-panel p-4">
+            <div class="scan-line"></div>
+            <div class="map-frame">
+                <div class="map-container"></div>
+                <div id="waypoint-layer" class="absolute inset-0 z-10">
+                    <!-- Waypoints populated by JS -->
+                </div>
+            </div>
+            
+            <div class="absolute top-6 left-6 glass-panel p-4 rounded-lg z-50 border-l-4 border-yellow-500 bg-opacity-90">
+                <div class="flex items-center gap-4">
+                    <div class="w-5 h-5 bg-yellow-400 rounded-full shadow-[0_0_15px_#facc15] animate-pulse"></div>
+                    <span class="text-yellow-400 font-black text-xs uppercase tracking-wider">Primary Strategic Hub</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- INTELLIGENCE PANEL -->
+        <aside class="w-[450px] glass-panel rounded-xl p-8 flex flex-col gap-8 border-r-4 border-sky-500 overflow-hidden">
+            <div class="flex flex-col flex-grow">
+                <h3 class="cockpit-font text-[10px] text-sky-500 font-bold border-b border-sky-900 pb-2 mb-6 uppercase tracking-widest">Intelligence Feed</h3>
+                <h2 id="location-title" class="cockpit-font text-3xl text-white font-black mb-4 tracking-tighter uppercase">MUMBAI</h2>
+                <!-- Text container with no fixed max-height to ensure visibility -->
+                <div id="log-text" class="text-xl leading-relaxed text-slate-1 font-medium bg-sky-950/20 p-5 rounded-lg border border-sky-900/50">
+                    Initial operations established at Mumbai International Airport. Focused on Douglas DC-3 airframe maintenance.
+                </div>
+            </div>
+
+            <div class="mt-auto space-y-6">
+                <div class="grid grid-cols-1 gap-4">
+                    <div class="bg-sky-950/40 p-5 rounded border border-sky-800">
+                        <div class="text-[10px] cockpit-font text-sky-500 uppercase mb-2">Strategic Infrastructure Count</div>
+                        <div id="count-display" class="text-5xl font-black text-white">1</div>
+                    </div>
+                </div>
+                <div class="space-y-2">
+                    <div class="flex justify-between text-[10px] cockpit-font font-bold text-sky-400 uppercase">
+                        <span>Hub Connectivity Level</span>
+                        <span id="prog-val">16%</span>
+                    </div>
+                    <div class="w-full bg-slate-900 h-4 rounded-full overflow-hidden border border-sky-900">
+                        <div id="progress-bar" class="h-full bg-gradient-to-r from-sky-600 to-yellow-400 shadow-[0_0_20px_#38bdf8]" style="width: 16%"></div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+    </main>
+
+    <!-- TIMELINE CONTROLS -->
+    <footer class="glass-panel p-8 pb-14 rounded-xl">
+        <div class="timeline-container">
+            <input type="range" id="timeline" min="1951" max="2026" value="1951">
+            <div class="markers-wrapper" id="markers-area">
+                <!-- Markers added via JS -->
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        const milestones = [
+            { 
+                name: "Mumbai", year: 1951, x: 25, y: 64, type: 'super', 
+                log: "FOUNDATION: Air Works takes flight at Mumbai Airport. India's first independent MRO established to service the DC-3 fleet." 
+            },
+            { 
+                name: "Delhi", year: 1993, x: 38, y: 28, type: 'hub', 
+                log: "COMMERCIAL EXPANSION: Opening the Delhi base to support the surge in commercial aviation and a landmark partnership with Jet Airways." 
+            },
+            { 
+                name: "Hosur", year: 2008, x: 42, y: 84, type: 'super', 
+                log: "HOSUR HUB: Launching India's first private EASA-certified maintenance base. A giant leap in high-tech airframe capability." 
+            },
+            { 
+                name: "Ahmedabad", year: 2022, x: 23, y: 46, type: 'hub', 
+                log: "ADANI INTEGRATION: Air Works merges with Adani Defence & Aerospace. Merging legacy heritage with global scale." 
+            },
+            { 
+                name: "Kochi & Adani", year: 2022, x: 37, y: 92, type: 'super', 
+                log: "STRATEGIC CONSOLIDATION: Air Works is acquired by Adani Group. Simultaneously, the Kochi hub is expanded into a critical Southern gateway." 
+            },
+            { 
+                name: "Platinum Jubilee", year: 2026, x: 50, y: 50, type: 'super', 
+                log: "PLATINUM JUBILEE: 75 Years of excellence. Now an Adani Group company, Air Works leads India toward global MRO self-reliance." 
+            }
+        ];
+
+        const timelineLabels = [
+            { year: 1951, label: "START" },
+            { year: 1993, label: "COMMERCIAL" },
+            { year: 2008, label: "HOSUR HUB", special: true },
+            { year: 2022, label: "ADANI / KOCHI", special: true },
+            { year: 2026, label: "PLATINUM" }
+        ];
+
+        const waypointLayer = document.getElementById('waypoint-layer');
+        const timeline = document.getElementById('timeline');
+        const yearDisplay = document.getElementById('year-display');
+        const logText = document.getElementById('log-text');
+        const locationTitle = document.getElementById('location-title');
+        const countDisplay = document.getElementById('count-display');
+        const progressBar = document.getElementById('progress-bar');
+        const progVal = document.getElementById('prog-val');
+        const markersArea = document.getElementById('markers-area');
+
+        function init() {
+            milestones.sort((a,b) => a.year - b.year);
+
+            milestones.forEach((loc, index) => {
+                const div = document.createElement('div');
+                div.className = `waypoint ${loc.type === 'super' ? 'hub-main' : 'hub-reg'}`;
+                div.style.left = loc.x + '%';
+                div.style.top = loc.y + '%';
+                div.id = `loc-${index}`;
+                waypointLayer.appendChild(div);
+            });
+
+            timelineLabels.forEach(item => {
+                const perc = ((item.year - 1951) / 75) * 100;
+                const marker = document.createElement('div');
+                marker.className = `marker cockpit-font font-bold text-[10px] ${item.special ? 'text-yellow-600' : 'text-sky-800'}`;
+                marker.style.left = perc + '%';
+                marker.id = `marker-${item.year}`;
+                marker.innerHTML = `
+                    <div class="mb-2 text-lg">|</div>
+                    <span class="${item.special ? 'text-sm' : ''}">${item.year}</span>
+                    <span class="text-[7px] block opacity-60 tracking-widest">${item.label}</span>
+                `;
+                markersArea.appendChild(marker);
+            });
+            
+            update(1951);
+        }
+
+        function update(year) {
+            yearDisplay.innerText = year;
+            let activeCount = 0;
+            const activeM = milestones.filter(m => m.year <= year);
+            const latestMajor = activeM.sort((a,b) => {
+                if(b.year !== a.year) return b.year - a.year;
+                return a.type === 'super' ? -1 : 1;
+            })[0] || milestones[0];
+
+            milestones.forEach((loc, index) => {
+                const el = document.getElementById(`loc-${index}`);
+                if (loc.year <= year) {
+                    el.classList.add('active');
+                    activeCount++;
+                } else {
+                    el.classList.remove('active');
+                }
+            });
+
+            locationTitle.innerText = latestMajor.name.toUpperCase();
+            logText.innerText = latestMajor.log;
+            countDisplay.innerText = activeCount;
+            const perc = Math.round((activeCount / milestones.length) * 100);
+            progVal.innerText = perc + "%";
+            progressBar.style.width = perc + "%";
+
+            timelineLabels.forEach(item => {
+                const el = document.getElementById(`marker-${item.year}`);
+                if (year >= item.year) {
+                    el.classList.add('text-white');
+                    if(item.special) el.classList.add('text-yellow-400');
+                    el.classList.add('active');
+                } else {
+                    el.classList.remove('text-white', 'text-yellow-400', 'active');
+                }
+            });
+        }
+
+        timeline.addEventListener('input', (e) => update(parseInt(e.target.value)));
+        window.onload = init;
+    </script>
+</body>
+</html>
